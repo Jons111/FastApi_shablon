@@ -1,37 +1,80 @@
-from passlib.context import CryptContext
+import time
 
+
+from passlib.context import CryptContext
+from jose import jwt,JWTError
 from fastapi import Depends, APIRouter, HTTPException
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
+from starlette import status
+from starlette.status import HTTP_404_NOT_FOUND
 
-
+import models
+from db.config import get_db
+from models.user_model import WorkersModel
+from schemas.basemodels import UserCreate, UserOut, WorkerLogin, TokenData, Token
 
 router=APIRouter()
 
 # setups for JWT
 SECRET_KEY = 'SOME-SECRET-KEY'
 ALGORITHM = 'HS256'
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_MINUTES = 10000
+pwd_context = CryptContext(schemes=['bcrypt'],deprecated='auto')
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl='/users/login')
 
-pwd_context=CryptContext(schemes=['bcrypt'])
+def create_access_token(data:dict):
+    print(data)
+    payload= data.copy()
+    payload.update( {'exp':time.time()+ACCESS_TOKEN_EXPIRE_MINUTES}
+    )
+    token = jwt.encode(payload,SECRET_KEY,algorithm=ALGORITHM)
+    return token
 
-#setup the security
-OAuth2_schema=OAuth2PasswordBearer(tokenUrl='token')
+def verify_access_token(token:str,credentials_exceration):
+    try:
+        decode_token = jwt.decode(token,SECRET_KEY,algorithms=ALGORITHM)
+        id:str = decode_token.get('user_id')
+        if id is None:
+            raise credentials_exceration
+        token_data = TokenData(id=id)
+    except JWTError :
+        raise credentials_exceration
+    return token_data
 
-# token
-class Token(BaseModel):
-    access_token: str
-    token_type: str
+def get_current_user(token:str=Depends(oauth2_scheme),db:Session=Depends(get_db)):
+    credentional_exception = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+                                           detail="User not validated")
+    token = verify_access_token(token,credentional_exception)
+    user= db.query(models.user_model.WorkersModel).filter(models.user_model.WorkersModel.id==token.id).first()
+
+    return user
+
+def hash(password:str):
+    return pwd_context.hash(password)
 
 
+def verify(plain_password,hashed_password):
+    return pwd_context.verify(plain_password,hashed_password)
+
+@router.post('/login', response_model=Token )
+def login(user_credentials: OAuth2PasswordRequestForm = Depends(),db:Session=Depends(get_db)):
+
+    user = db.query(models.user_model.WorkersModel).filter(models.user_model.WorkersModel.username==user_credentials.username).first()
+
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="Invalid username!!!")
+
+    if not verify(user_credentials.password,user.password):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,detail="Invalid password"
+        )
 
 
-
-
-
-
-
+    access_token = create_access_token(data={'user_id':user.id})
+    return {"access_token":access_token,"type":'Bearer'}
 
 
 

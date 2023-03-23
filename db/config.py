@@ -3,7 +3,11 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
 #database url
-SQLALCHEMY_DATABASE_URL = 'postgresql://postgres:1234@localhost/dokon'
+SQLALCHEMY_DATABASE_URL = 'postgresql://postgres:1234@localhost/store'
+
+SECRET_KEY = 'SOME-SECRET-KEY'
+ALGORITHM = 'HS256'
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 engine = create_engine(SQLALCHEMY_DATABASE_URL,echo=True)
 
