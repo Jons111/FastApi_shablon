@@ -21,7 +21,7 @@ router=APIRouter()
 # setups for JWT
 SECRET_KEY = 'SOME-SECRET-KEY'
 ALGORITHM = 'HS256'
-ACCESS_TOKEN_EXPIRE_MINUTES = 10000
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
 pwd_context = CryptContext(schemes=['bcrypt'],deprecated='auto')
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl='/users/login')
 
